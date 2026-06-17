@@ -1,12 +1,15 @@
 package com.bajaj.bfhl.service.impl;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Service;
 
@@ -59,11 +62,13 @@ public class BfhlServiceImpl implements BfhlService {
         Map<String, Integer> alphabetFrequency = new HashMap<>();
 
         int vowelCount = 0;
+        List<Double> allNumbers = new ArrayList<>();
 
         for (String value : uniqueData) {
             // Pure Number
             if (isPureNumber(value)) {
                 double number = Double.parseDouble(value);
+                allNumbers.add(number);
                 sum += number;
                 if (largest == null || number > largest) {
                     largest = number;
@@ -97,57 +102,96 @@ public class BfhlServiceImpl implements BfhlService {
             } // Alphanumeric
             else {
 
-                StringBuilder numberBuilder = new StringBuilder();
-
-                for (char c : value.toCharArray()) {
-
-                    if (Character.isLetter(c)) {
-
-                        char upper = Character.toUpperCase(c);
-
-                        alphabets.add(String.valueOf(upper));
-
-                        alphabetFrequency.put(
-                                String.valueOf(upper),
-                                alphabetFrequency.getOrDefault(String.valueOf(upper), 0) + 1);
-
-                        if ("AEIOU".indexOf(upper) != -1) {
-                            vowelCount++;
-                        }
-
-                    } else if (Character.isDigit(c) || c == '.' || c == '-') {
-
-                        numberBuilder.append(c);
-                    }
-                }
-
-                if (!numberBuilder.isEmpty()) {
-
-                    double number = Double.parseDouble(numberBuilder.toString());
-
+                // Extract numeric tokens (allowing integers and decimals, with optional leading -)
+                Pattern numberPattern = Pattern.compile("-?\\d+(\\.\\d+)?");
+                Matcher numberMatcher = numberPattern.matcher(value);
+                while (numberMatcher.find()) {
+                    String numStr = numberMatcher.group();
+                    double number = Double.parseDouble(numStr);
+                    allNumbers.add(number);
                     sum += number;
-
                     if (largest == null || number > largest) {
                         largest = number;
                     }
-
                     if (smallest == null || number < smallest) {
                         smallest = number;
                     }
-
                     if (number % 1 == 0) {
-
                         if (((long) number) % 2 == 0) {
-                            evenNumbers.add(numberBuilder.toString()); 
-                        }else {
-                            oddNumbers.add(numberBuilder.toString());
+                            evenNumbers.add(numStr);
+                        } else {
+                            oddNumbers.add(numStr);
+                        }
+                    }
+                }
+
+                // Extract contiguous alphabetic tokens and update frequency/vowel counts
+                Pattern alphaPattern = Pattern.compile("[A-Za-z]+");
+                Matcher alphaMatcher = alphaPattern.matcher(value);
+                while (alphaMatcher.find()) {
+                    String alphaToken = alphaMatcher.group().toUpperCase();
+                    alphabets.add(alphaToken);
+                    for (char c : alphaToken.toCharArray()) {
+                        String key = String.valueOf(c);
+                        alphabetFrequency.put(key, alphabetFrequency.getOrDefault(key, 0) + 1);
+                        if ("AEIOU".indexOf(c) != -1) {
+                            vowelCount++;
                         }
                     }
                 }
             }
         }
 
-        return BfhlResponse.builder().build();
+        // Prepare derived fields: sorted numbers, longest/shortest alphabetic values, and summary
+        List<Double> sortedAllNumbers = new ArrayList<>(allNumbers);
+        Collections.sort(sortedAllNumbers);
+        List<String> sortedNumbers = new ArrayList<>();
+        for (Double d : sortedAllNumbers) {
+            sortedNumbers.add(String.valueOf(d));
+        }
+
+        String longestAlphabetic = null;
+        String shortestAlphabetic = null;
+        for (String a : alphabets) {
+            if (longestAlphabetic == null || a.length() > longestAlphabetic.length()) {
+                longestAlphabetic = a;
+            }
+            if (shortestAlphabetic == null || a.length() < shortestAlphabetic.length()) {
+                shortestAlphabetic = a;
+            }
+        }
+
+        BfhlResponse.Summary summary = BfhlResponse.Summary.builder()
+                .total_elements_received(totalReceived)
+                .valid_elements_processed(uniqueData.size())
+                .invalid_elements_ignored(invalidIgnored)
+                .build();
+
+        long processingTime = System.currentTimeMillis() - startTime;
+
+        return BfhlResponse.builder()
+                .is_success(true)
+                .request_id(requestId)
+                .odd_numbers(oddNumbers)
+                .even_numbers(evenNumbers)
+                .alphabets(alphabets)
+                .special_characters(specialCharacters)
+                .sum(String.valueOf(sum))
+                .largest_number(largest == null ? null : String.valueOf(largest))
+                .smallest_number(smallest == null ? null : String.valueOf(smallest))
+                .alphabet_count(alphabets.size())
+                .number_count(allNumbers.size())
+                .special_character_count(specialCharacters.size())
+                .contains_duplicates(containsDuplicates)
+                .unique_element_count(uniqueData.size())
+                .alphabet_frequency(alphabetFrequency)
+                .vowel_count(vowelCount)
+                .sorted_numbers(sortedNumbers)
+                .longest_alphabetic_value(longestAlphabetic)
+                .shortest_alphabetic_value(shortestAlphabetic)
+                .processing_time_ms(processingTime)
+                .summary(summary)
+                .build();
     }
 
     private boolean isPureNumber(String s) {
