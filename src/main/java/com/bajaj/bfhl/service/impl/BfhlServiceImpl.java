@@ -59,9 +59,8 @@ public class BfhlServiceImpl implements BfhlService {
         Double largest = null;
         Double smallest = null;
 
-        Map<String, Integer> alphabetFrequency = new HashMap<>();
-
         int vowelCount = 0;
+        int consonantCount = 0;
         List<Double> allNumbers = new ArrayList<>();
 
         for (String value : uniqueData) {
@@ -89,11 +88,10 @@ public class BfhlServiceImpl implements BfhlService {
                 String upper = value.toUpperCase();
                 alphabets.add(upper);
                 for (char c : upper.toCharArray()) {
-                    alphabetFrequency.put(
-                            String.valueOf(c),
-                            alphabetFrequency.getOrDefault(String.valueOf(c), 0) + 1);
                     if ("AEIOU".indexOf(c) != -1) {
                         vowelCount++;
+                    } else {
+                        consonantCount++;
                     }
                 }
             } // Pure Special Character
@@ -125,47 +123,22 @@ public class BfhlServiceImpl implements BfhlService {
                     }
                 }
 
-                // Extract contiguous alphabetic tokens and update frequency/vowel counts
+                // Extract contiguous alphabetic tokens and update vowel/consonant counts
                 Pattern alphaPattern = Pattern.compile("[A-Za-z]+");
                 Matcher alphaMatcher = alphaPattern.matcher(value);
                 while (alphaMatcher.find()) {
                     String alphaToken = alphaMatcher.group().toUpperCase();
                     alphabets.add(alphaToken);
                     for (char c : alphaToken.toCharArray()) {
-                        String key = String.valueOf(c);
-                        alphabetFrequency.put(key, alphabetFrequency.getOrDefault(key, 0) + 1);
                         if ("AEIOU".indexOf(c) != -1) {
                             vowelCount++;
+                        } else {
+                            consonantCount++;
                         }
                     }
                 }
             }
         }
-
-        // Prepare derived fields: sorted numbers, longest/shortest alphabetic values, and summary
-        List<Double> sortedAllNumbers = new ArrayList<>(allNumbers);
-        Collections.sort(sortedAllNumbers);
-        List<String> sortedNumbers = new ArrayList<>();
-        for (Double d : sortedAllNumbers) {
-            sortedNumbers.add(String.valueOf(d));
-        }
-
-        String longestAlphabetic = null;
-        String shortestAlphabetic = null;
-        for (String a : alphabets) {
-            if (longestAlphabetic == null || a.length() > longestAlphabetic.length()) {
-                longestAlphabetic = a;
-            }
-            if (shortestAlphabetic == null || a.length() < shortestAlphabetic.length()) {
-                shortestAlphabetic = a;
-            }
-        }
-
-        BfhlResponse.Summary summary = BfhlResponse.Summary.builder()
-                .total_elements_received(totalReceived)
-                .valid_elements_processed(uniqueData.size())
-                .invalid_elements_ignored(invalidIgnored)
-                .build();
 
         long processingTime = System.currentTimeMillis() - startTime;
 
@@ -183,14 +156,9 @@ public class BfhlServiceImpl implements BfhlService {
                 .number_count(allNumbers.size())
                 .special_character_count(specialCharacters.size())
                 .contains_duplicates(containsDuplicates)
-                .unique_element_count(uniqueData.size())
-                .alphabet_frequency(alphabetFrequency)
                 .vowel_count(vowelCount)
-                .sorted_numbers(sortedNumbers)
-                .longest_alphabetic_value(longestAlphabetic)
-                .shortest_alphabetic_value(shortestAlphabetic)
+                .consonant_count(consonantCount)
                 .processing_time_ms(processingTime)
-                .summary(summary)
                 .build();
     }
 
